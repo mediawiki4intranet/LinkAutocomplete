@@ -68,9 +68,6 @@ $(document).ready(function()
 					lastRect = rects[rects.length-1],
 					top = lastRect.bottom - ta.scrollTop + document.documentElement.scrollTop,
 					left = lastRect.right;
-				linkhint.hintLayer.style.top = top+'px';
-				linkhint.hintLayer.style.left = left+'px';
-				linkhint.hintLayer.style.display = '';
 				// Make an AJAX call to standard MW autocomplete API
 				$.ajax({
 					url: mw.util.wikiScript('api'),
@@ -90,6 +87,12 @@ $(document).ready(function()
 						{
 							opts.push([ data[1][i], data[1][i] ]);
 						}
+						if (opts.length)
+						{
+							linkhint.hintLayer.style.top = top+'px';
+							linkhint.hintLayer.style.left = left+'px';
+							linkhint.hintLayer.style.display = '';
+						}
 						linkhint.replaceItems(opts);
 					}
 				})
@@ -105,6 +108,7 @@ $(document).ready(function()
 		linkhint.onChange();
 	});
 	// ...and override some of its methods
+	// Because of this overriding, minified and mangled hinter doesn't work
 	linkhint.onChange = function(force)
 	{
 		if (!this.delay || force)
@@ -129,7 +133,8 @@ $(document).ready(function()
 			v += ']]';
 		}
 		this.input.value = this.input.value.substr(0, linkstart) + v + this.input.value.substr(linkend);
-		this.input.selectionStart = this.input.selectionEnd = linkstart + this.items[index][1].length;
+		this.input.selectionStart = this.input.selectionEnd = linkstart + v.length;
 		this.hide();
+		this.input.focus();
 	};
 });

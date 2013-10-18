@@ -2,6 +2,7 @@
 
    Homepage: http://yourcmc.ru/wiki/SimpleAutocomplete
    License: MPL 2.0+ (http://www.mozilla.org/MPL/2.0/)
+   Version: 2013-10-18
    (c) Vitaliy Filippov 2011-2013
 
    Usage:
@@ -243,7 +244,7 @@ SimpleAutocomplete.prototype.makeItem = function(index, item)
         d.innerHTML = item[0];
     var self = this;
     addListener(d, 'mouseover', function() { return self.onItemMouseOver(this); });
-    addListener(d, 'mousedown', function(ev) { return self.onItemClick(ev, this); });
+    addListener(d, 'click', function(ev) { return self.onItemClick(ev, this); });
     return d;
 };
 
@@ -269,7 +270,9 @@ SimpleAutocomplete.prototype.highlightItem = function(elem)
     {
         var c = this.getItem();
         if (c)
-            c.className = 'hintItem';
+        {
+            c.className = this.items[this.selectedIndex][2] ? 'hintDisabledItem' : 'hintItem';
+        }
     }
     this.selectedIndex = ni;
     elem.className = 'hintActiveItem';
@@ -289,6 +292,17 @@ SimpleAutocomplete.prototype.getItem = function(index)
 // Select index'th item - change the input value and hide the hint if not a multi-select
 SimpleAutocomplete.prototype.selectItem = function(index)
 {
+    if (this.items[index][2])
+        return false;
+    if (this.moreMarker && this.items[index][1] == this.moreMarker)
+    {
+        // User clicked 'more'. Load more items without delay.
+        this.items.splice(index, 1);
+        elm.parentNode.removeChild(elm);
+        this.more++;
+        this.onChange(true);
+        return;
+    }
     if (!this.multipleDelimiter && !this.multipleListener)
     {
         this.input.value = this.items[index][1];
@@ -406,17 +420,6 @@ SimpleAutocomplete.prototype.onItemMouseOver = function(elm)
 SimpleAutocomplete.prototype.onItemClick = function(ev, elm)
 {
     var index = parseInt(elm.id.substr(this.id.length+6));
-    if (this.items[index][2])
-        return false;
-    if (this.moreMarker && this.items[index][1] == this.moreMarker)
-    {
-        // User clicked 'more'. Load more items without delay.
-        this.items.splice(index, 1);
-        elm.parentNode.removeChild(elm);
-        this.more++;
-        this.onChange(true);
-        return true;
-    }
     this.selectItem(index);
     return true;
 };
