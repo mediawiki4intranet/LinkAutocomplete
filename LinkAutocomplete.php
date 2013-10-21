@@ -38,7 +38,7 @@ $wgResourceModules['LinkAutocomplete'] = array(
 
 $wgExtensionCredits['other'][] = array(
     'name'           => 'LinkAutocomplete',
-    'version'        => '2013-10-18',
+    'version'        => '2013-10-21',
     'author'         => 'Vitaliy Filippov',
     'url'            => 'http://wiki.4intra.net/LinkAutocomplete',
     'description'    => 'Link autocompleter for MediaWiki editbox',
