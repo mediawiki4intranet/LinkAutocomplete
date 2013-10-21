@@ -42,7 +42,7 @@ $(document).ready(function()
 		return s;
 	}
 	ta.parentNode.insertBefore(tao, ta);
-	var linkstart, linkend;
+	var linkstart, linkend, linkrel;
 	// Create SimpleAutocomplete...
 	var linkhint = new SimpleAutocomplete(ta, function(linkhint)
 	{
@@ -74,6 +74,34 @@ $(document).ready(function()
 					lastRect = rects[rects.length-1],
 					top = lastRect.bottom - ta.scrollTop + document.documentElement.scrollTop,
 					left = lastRect.right;
+				// Handle relative links
+				var q = ta.value.substr(linkstart, curend-linkstart).trim();
+				linkrel = null;
+				if (q[0] == '/')
+				{
+					// Subpage
+					linkrel = mw.config.get('wgTitle');
+					q = mw.config.get('wgCanonicalNamespace') + ':' + linkrel + q;
+					linkrel = [ linkrel.length, '' ];
+				}
+				else if (q[0] == '.' && q[1] == '.')
+				{
+					// Relative up-link
+					var rel = /^(\.\.\/)+/.exec(q);
+					if (rel)
+					{
+						var up = rel[0].length/3;
+						linkrel = mw.config.get('wgTitle').replace(new RegExp("((/|^)[^/]*){"+up+"}$"), '');
+						if (linkrel == mw.config.get('wgTitle'))
+						{
+							// Too many levels up
+							linkstart = -1;
+							break;
+						}
+						q = mw.config.get('wgCanonicalNamespace') + ':' + linkrel + q.substr(rel[0].length-1);
+						linkrel = [ linkrel.length, rel[0].substr(0, rel[0].length-1) ];
+					}
+				}
 				// Make an AJAX call to standard MW autocomplete API
 				$.ajax({
 					url: mw.util.wikiScript('api'),
@@ -82,7 +110,7 @@ $(document).ready(function()
 					data: {
 						action: 'opensearch',
 						format: 'json',
-						search: ta.value.substr(linkstart, curend-linkstart).trim(),
+						search: q,
 						canonicalns: 1,
 						suggest: ''
 					},
@@ -134,6 +162,11 @@ $(document).ready(function()
 	linkhint.selectItem = function(index)
 	{
 		var v = this.items[index][1];
+		if (linkrel !== null)
+		{
+			// Insert relative links
+			v = linkrel[1] + v.replace(/^[^:]*:/, '').substr(linkrel[0]);
+		}
 		if (this.input.value[linkend] != ']' && this.input.value[linkend] != '|')
 		{
 			v += ']]';

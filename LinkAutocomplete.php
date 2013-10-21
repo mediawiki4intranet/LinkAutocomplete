@@ -24,7 +24,6 @@
  * @author Vitaliy Filippov <vitalif@mail.ru>
  */
 
-# TODO: Support relative links
 # TODO: Autocomplete templates and parser functions
 
 $wgHooks['BeforePageDisplay'][] = 'efLinkAutocomplete_BPD';
