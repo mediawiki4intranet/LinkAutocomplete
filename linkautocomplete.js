@@ -14,7 +14,9 @@ $(document).ready(function()
 	// Create overlay for textarea
 	var tao = document.createElement('div');
 	var tas = document.createElement('span');
+	var tas2 = document.createElement('span');
 	tao.appendChild(tas);
+	tao.appendChild(tas2);
 	ta.parentNode.style.position = 'relative';
 	ta.style.zIndex = '2';
 	tao.style.visibility = 'hidden';
@@ -24,9 +26,9 @@ $(document).ready(function()
 	tao.style.whiteSpace = 'pre-wrap';
 	tao.style.boxSizing = 'border-box';
 	tao.style.border = '1px solid transparent';
-	tas.style.overflowWrap = 'break-word';
-	tas.style.wordWrap = 'break-word';
-	tas.style.mozWordWrap = 'break-word';
+	tao.style.overflowWrap = 'break-word';
+	tao.style.wordWrap = 'break-word';
+	tao.style.mozWordWrap = 'break-word';
 	tao.style.fontFamily = $(ta).css('font-family');
 	tao.style.lineHeight = $(ta).css('line-height');
 	tao.style.fontSize = $(ta).css('font-size');
@@ -60,10 +62,14 @@ $(document).ready(function()
 					ta.value[j] != '\n' && ta.value[j] != '\r' &&
 					ta.value[j] != '|' && ta.value[j] != ']'; j++) {}
 				linkend = j;
+				// Find closest whitespace character
+				for (; j < ta.value.length && ta.value[j] != '\n' && ta.value[j] != '\r' &&
+					ta.value[j] != ' ' && ta.value[j] != '\t'; j++) {}
 				var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
 				// Copy text to overlay to calculate cursor position
 				tao.style.overflowY = ta.scrollHeight > ta.clientHeight ? 'scroll' : '';
 				tas.innerHTML = htmlspecialchars(ta.value.substr(0, linkstart));
+				tas2.innerHTML = htmlspecialchars(ta.value.substr(linkstart, j));
 				var rects = tas.getClientRects(),
 					lastRect = rects[rects.length-1],
 					top = lastRect.bottom - ta.scrollTop + document.documentElement.scrollTop,
