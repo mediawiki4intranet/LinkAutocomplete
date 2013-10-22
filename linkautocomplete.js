@@ -60,9 +60,9 @@ $(document).ready(function()
 				}
 				for (var j = i; j < ta.value.length &&
 					ta.value[j] != '\n' && ta.value[j] != '\r' &&
-					ta.value[j] != '|' && ta.value[j] != ']'; j++) {}
+					ta.value[j] != '|' && ta.value[j] != ']' && ta.value[j] != '#'; j++) {}
 				linkend = j;
-				// Find closest whitespace character
+				// Find closest whitespace character - we'll cut up to it for correct wrapping
 				for (; j < ta.value.length && ta.value[j] != '\n' && ta.value[j] != '\r' &&
 					ta.value[j] != ' ' && ta.value[j] != '\t'; j++) {}
 				var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
@@ -167,7 +167,8 @@ $(document).ready(function()
 			// Insert relative links
 			v = linkrel[1] + v.replace(/^[^:]*:/, '').substr(linkrel[0]);
 		}
-		if (this.input.value[linkend] != ']' && this.input.value[linkend] != '|')
+		if (this.input.value[linkend] != ']' && this.input.value[linkend] != '|' &&
+			this.input.value[linkend] != '#')
 		{
 			v += ']]';
 		}
