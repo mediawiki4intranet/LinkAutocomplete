@@ -25,7 +25,7 @@
  */
 
 # TODO: Autocomplete templates and parser functions
-# TODO: (?) Autocomplete section titles
+# TODO: Maybe cache loaded items?
 
 $wgHooks['BeforePageDisplay'][] = 'efLinkAutocomplete_BPD';
 $wgExtensionFunctions[] = 'efLinkAutocomplete';
