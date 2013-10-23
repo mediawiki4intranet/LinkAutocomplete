@@ -15,6 +15,7 @@ $(document).ready(function()
 	var tao = document.createElement('div');
 	var tas = document.createElement('span');
 	var tas2 = document.createElement('span');
+	var isset;
 	tao.appendChild(tas);
 	tao.appendChild(tas2);
 	ta.parentNode.style.position = 'relative';
@@ -30,7 +31,6 @@ $(document).ready(function()
 	tao.style.wordWrap = 'break-word';
 	tao.style.mozWordWrap = 'break-word';
 	tao.style.fontFamily = $(ta).css('font-family');
-	tao.style.lineHeight = $(ta).css('line-height');
 	tao.style.fontSize = $(ta).css('font-size');
 	// Function to escape special HTML/XML characters
 	function htmlspecialchars(s)
@@ -67,6 +67,11 @@ $(document).ready(function()
 	};
 	var setHintPos = function(pos)
 	{
+		if (!isset)
+		{
+			tao.style.lineHeight = $(ta).css('line-height');
+			isset = true;
+		}
 		// Find closest whitespace character - we'll cut up to it for correct wrapping
 		j = findChars(pos, ' \t\n\r');
 		// Copy text to overlay to calculate cursor position
