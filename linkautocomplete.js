@@ -92,7 +92,7 @@ $(document).ready(function()
 	var linkhint = new SimpleAutocomplete(ta, function(linkhint)
 	{
 		linkstart = -1;
-		var i = findCharsBack(ta.selectionStart-2, '\n\r[]#');
+		var i = findCharsBack(ta.selectionStart-1, '\n\r[]#');
 		if (i > 0 && ta.value[i] == '[' && ta.value[i-1] == '[')
 		{
 			i--;
