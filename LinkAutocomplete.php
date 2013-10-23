@@ -57,6 +57,41 @@ function efLinkAutocomplete()
     }
 }
 
+function efLinkAutocomplete_findParams($node, &$params = array())
+{
+    if ($node->childNodes && $node->childNodes->length)
+    {
+        foreach ($node->childNodes as $c)
+        {
+            if ($c->nodeName == 'tplarg')
+            {
+                $p = array();
+                foreach ($c->childNodes as $a)
+                {
+                    $p[$a->nodeName] = $a->nodeValue;
+                }
+                $params[$p['title']] = $p['part'] === '' ? $p['title'] : $p['part'];
+            }
+            else
+            {
+                efLinkAutocomplete_findParams($c, $params);
+            }
+        }
+    }
+    return $params;
+}
+
+$wgAjaxExportList[] = 'efLinkAutocomplete_getTemplateParams';
+function efLinkAutocomplete_getTemplateParams($title)
+{
+    global $wgParser;
+    $title = Title::newFromText($title);
+    $wgParser->parse(' ', $title, new ParserOptions());
+    $article = new WikiPage($title);
+    $dom = $wgParser->preprocessToDom($article->getText(), Parser::PTD_FOR_INCLUSION);
+    return json_encode(array_keys(efLinkAutocomplete_findParams($dom->node)));
+}
+
 function efLinkAutocomplete_BPD(&$out)
 {
     global $wgRequest;
