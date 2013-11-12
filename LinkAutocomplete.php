@@ -29,6 +29,7 @@
 
 $wgHooks['BeforePageDisplay'][] = 'efLinkAutocomplete_BPD';
 $wgExtensionFunctions[] = 'efLinkAutocomplete';
+$wgAjaxExportList[] = 'efLinkAutocomplete_ParserFunctions';
 
 $wgResourceModules['LinkAutocomplete'] = array(
     'localBasePath' => __DIR__,
@@ -64,4 +65,80 @@ function efLinkAutocomplete_BPD(&$out)
         $out->addModules('LinkAutocomplete');
     }
     return true;
+}
+
+class TrackingParser extends Parser
+{
+    var $setters = array();
+
+    // Track setFunctionHook() calls to find out the extension which has registered it
+    function setFunctionHook($id, $callback, $flags = 0)
+    {
+        $setter = 'core';
+        foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS) as $frame)
+        {
+            if (isset($frame['file']) &&
+                preg_match('#[/\\\\]extensions[/\\\\]([^/\\\\]*)[/\\\\]#is', $frame['file'], $m) &&
+                $m[1] != 'LinkAutocomplete')
+            {
+                $setter = $m[1];
+                break;
+            }
+        }
+        $this->setters[$id] = $setter;
+        return parent::setFunctionHook($id, $callback, $flags);
+    }
+}
+
+function efLinkAutocomplete_ParserFunctions()
+{
+    $parser = new TrackingParser();
+    $parser->firstCallInit();
+    $result = array();
+    foreach ($parser->mFunctionHooks as $f => $settings)
+    {
+        $mag = MagicWord::get($f);
+        $setter = $parser->setters[$f];
+        foreach ($mag->mSynonyms as $f)
+        {
+            if (!$mag->mCaseSensitive)
+            {
+                $f = mb_strtolower($f);
+            }
+            $f = rtrim($f, ':');
+            if (preg_match('/^[\x20-\x7F]+$/', $f))
+            {
+                // Prefer english synonym
+                break;
+            }
+        }
+        if (!($settings[1] & Parser::SFH_NO_HASH))
+        {
+            $f = "#$f";
+        }
+        $result[] = array($f, $setter);
+    }
+    usort($result, function($a, $b)
+    {
+        // first list extension functions
+        if ($a[1] == 'core' && $b[1] != 'core')
+        {
+            return 1;
+        }
+        elseif ($a[1] != 'core' && $b[1] == 'core')
+        {
+            return -1;
+        }
+        // first list lowercase functions
+        elseif (mb_strtolower($a[0]{0}) == $a[0]{0} && mb_strtolower($b[0]{0}) != $b[0]{0})
+        {
+            return -1;
+        }
+        elseif (mb_strtolower($a[0]{0}) != $a[0]{0} && mb_strtolower($b[0]{0}) == $b[0]{0})
+        {
+            return 1;
+        }
+        return strcmp($a[1].'-'.$a[0], $b[1].'-'.$b[0]);
+    });
+    return json_encode($result);
 }

@@ -43,7 +43,7 @@ $(document).ready(function()
 	}
 	ta.parentNode.insertBefore(tao, ta);
 	// Helper functions and local variables
-	var linkstart, linkend, linkrel = null, hinttop, hintleft, last_q = null;
+	var linkstart, linkend, linkafter = '', linkrel = null, hinttop, hintleft, last_q = null;
 	var findChars = function(i, chars)
 	{
 		var j;
@@ -132,6 +132,7 @@ $(document).ready(function()
 				linkrel = [ linkrel.length, rel[0].substr(0, rel[0].length-1) ];
 			}
 		}
+		linkafter = '|]#'.indexOf(ta.value[linkend]) == -1 ? ']]' : '';
 		if (last_q !== 'page:'+q)
 		{
 			last_q = 'page:'+q;
@@ -169,6 +170,7 @@ $(document).ready(function()
 		findLinkEnd();
 		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
+		linkafter = '|]'.indexOf(ta.value[linkend]) == -1 ? ']]' : '';
 		if (last_q !== 'sections:'+page)
 		{
 			last_q = 'sections:'+page;
@@ -197,6 +199,62 @@ $(document).ready(function()
 			});
 		}
 	};
+	var pfs;
+	var handleParserFunction = function(i, sfh_hash)
+	{
+		linkend = findChars(linkstart, '\n\r:}');
+		if (linkend >= ta.value.length || ta.value[linkend] == '\n' || ta.value[linkend] == '\r')
+		{
+			// Do not cut to the end of line if none of : } characters are found
+			linkend = findChars(linkstart, ' \t\n\r');
+		}
+		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
+		var q = ta.value.substr(linkstart, curend-linkstart).trim();
+		if (sfh_hash)
+		{
+			q = '#'+q;
+		}
+		q = q.toLowerCase();
+		if (last_q !== 'pf:'+q)
+		{
+			last_q = 'pf:'+q;
+			linkrel = sfh_hash ? [ 1, '' ] : null;
+			linkafter = ':}'.indexOf(ta.value[linkend]) == -1 ? ': }}' : '';
+			var showPFHint = function()
+			{
+				var opts = [];
+				for (var i = 0; i < pfs.length; i++)
+				{
+					if (pfs[i][0].substr(0, q.length).toLowerCase() == q)
+					{
+						opts.push([ pfs[i][0], pfs[i][0] ]);
+					}
+				}
+				showHint(opts);
+			};
+			if (!pfs)
+			{
+				// Parser functions are only loaded 1 time
+				$.ajax({
+					url: mw.config.get('wgScript'),
+					type: 'GET',
+					dataType: 'json',
+					data: {
+						action: 'ajax',
+						rs: 'efLinkAutocomplete_ParserFunctions'
+					},
+					success: function(data) {
+						pfs = data;
+						showPFHint();
+					}
+				});
+			}
+			else
+			{
+				showPFHint();
+			}
+		}
+	};
 	// Create SimpleAutocomplete...
 	var linkhint = new SimpleAutocomplete(ta, function(linkhint)
 	{
@@ -211,11 +269,20 @@ $(document).ready(function()
 			// Save # position
 			linkstart = i+1;
 			setHintPos(linkstart);
-			i = findCharsBack(i, '\n\r[]{}');
-			if (i > 0 && ta.value[i] == '[' && ta.value[i-1] == '[')
+			for (i--; i >= 0 && ' \t'.indexOf(ta.value[i]) != -1; i--) {}
+			if (i > 0 && ta.value[i] == '{' && ta.value[i-1] == '{')
 			{
-				// # actually begins after [[ - we are inside a page link
-				handlePageSection(i);
+				// # begins just after {{ - it's a hashed parser function
+				handleParserFunction(i, true);
+			}
+			else
+			{
+				i = findCharsBack(i, '\n\r[]{}');
+				if (i > 0 && ta.value[i] == '[' && ta.value[i-1] == '[')
+				{
+					// # actually begins after [[ - we are inside a page link
+					handlePageSection(i);
+				}
 			}
 		}
 		else
@@ -253,11 +320,7 @@ $(document).ready(function()
 			// This is needed to insert relative links
 			v = linkrel[1] + v.replace(/^[^:]*:/, '').substr(linkrel[0]);
 		}
-		if (this.input.value[linkend] != ']' && this.input.value[linkend] != '|' &&
-			this.input.value[linkend] != '#')
-		{
-			v += ']]';
-		}
+		v += linkafter;
 		this.input.value = this.input.value.substr(0, linkstart) + v + this.input.value.substr(linkend);
 		this.input.selectionStart = this.input.selectionEnd = linkstart + v.length;
 		this.hide();
