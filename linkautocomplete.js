@@ -93,6 +93,110 @@ $(document).ready(function()
 		}
 		linkhint.replaceItems(opts);
 	};
+	var handlePageLink = function(i)
+	{
+		i--;
+		linkstart = i+2;
+		if (ta.value[linkstart] == ':')
+		{
+			linkstart++;
+		}
+		findLinkEnd();
+		setHintPos(linkstart);
+		// Handle relative links
+		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
+		var q = ta.value.substr(linkstart, curend-linkstart).trim();
+		linkrel = null;
+		if (q[0] == '/')
+		{
+			// Subpage
+			linkrel = mw.config.get('wgTitle');
+			q = mw.config.get('wgCanonicalNamespace') + ':' + linkrel + q;
+			linkrel = [ linkrel.length, '' ];
+		}
+		else if (q[0] == '.' && q[1] == '.')
+		{
+			// Relative up-link
+			var rel = /^(\.\.\/)+/.exec(q);
+			if (rel)
+			{
+				var up = rel[0].length/3;
+				linkrel = mw.config.get('wgTitle').replace(new RegExp("((/|^)[^/]*){"+up+"}$"), '');
+				if (linkrel == mw.config.get('wgTitle'))
+				{
+					// Too many levels up
+					linkhint.replaceItems([]);
+					return;
+				}
+				q = mw.config.get('wgCanonicalNamespace') + ':' + linkrel + q.substr(rel[0].length-1);
+				linkrel = [ linkrel.length, rel[0].substr(0, rel[0].length-1) ];
+			}
+		}
+		if (last_q !== 'page:'+q)
+		{
+			last_q = 'page:'+q;
+			// Make an AJAX call to standard MW autocomplete API
+			$.ajax({
+				url: mw.util.wikiScript('api'),
+				type: 'GET',
+				dataType: 'json',
+				data: {
+					action: 'opensearch',
+					format: 'json',
+					search: q,
+					canonicalns: 1,
+					suggest: ''
+				},
+				success: function(data)
+				{
+					var opts = [];
+					for (var i in data[1])
+					{
+						opts.push([ data[1][i], data[1][i] ]);
+					}
+					showHint(opts);
+				}
+			});
+		}
+	};
+	var handlePageSection = function(i)
+	{
+		var page = ta.value.substr(i+1, linkstart-i-2);
+		if (page == '')
+		{
+			page = mw.config.get('wgCanonicalNamespace')+':'+mw.config.get('wgTitle');
+		}
+		findLinkEnd();
+		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
+		var q = ta.value.substr(linkstart, curend-linkstart).trim();
+		if (last_q !== 'sections:'+page)
+		{
+			last_q = 'sections:'+page;
+			$.ajax({
+				url: mw.util.wikiScript('api'),
+				type: 'GET',
+				dataType: 'json',
+				data: {
+					action: 'parse',
+					format: 'json',
+					prop: 'sections',
+					page: page
+				},
+				success: function(data)
+				{
+					var opts = [];
+					if (data && data.parse && data.parse.sections)
+					{
+						for (var i in data.parse.sections)
+						{
+							opts.push([ data.parse.sections[i].number+'. '+data.parse.sections[i].line, data.parse.sections[i].line ]);
+						}
+					}
+					showHint(opts);
+				}
+			});
+		}
+	};
 	// Create SimpleAutocomplete...
 	var linkhint = new SimpleAutocomplete(ta, function(linkhint)
 	{
@@ -100,114 +204,18 @@ $(document).ready(function()
 		var i = findCharsBack(ta.selectionStart-1, '\n\r[]#');
 		if (i > 0 && ta.value[i] == '[' && ta.value[i-1] == '[')
 		{
-			i--;
-			linkstart = i+2;
-			if (ta.value[linkstart] == ':')
-			{
-				linkstart++;
-			}
-			findLinkEnd();
-			setHintPos(linkstart);
-			// Handle relative links
-			var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
-			var q = ta.value.substr(linkstart, curend-linkstart).trim();
-			linkrel = null;
-			if (q[0] == '/')
-			{
-				// Subpage
-				linkrel = mw.config.get('wgTitle');
-				q = mw.config.get('wgCanonicalNamespace') + ':' + linkrel + q;
-				linkrel = [ linkrel.length, '' ];
-			}
-			else if (q[0] == '.' && q[1] == '.')
-			{
-				// Relative up-link
-				var rel = /^(\.\.\/)+/.exec(q);
-				if (rel)
-				{
-					var up = rel[0].length/3;
-					linkrel = mw.config.get('wgTitle').replace(new RegExp("((/|^)[^/]*){"+up+"}$"), '');
-					if (linkrel == mw.config.get('wgTitle'))
-					{
-						// Too many levels up
-						linkhint.replaceItems([]);
-						return;
-					}
-					q = mw.config.get('wgCanonicalNamespace') + ':' + linkrel + q.substr(rel[0].length-1);
-					linkrel = [ linkrel.length, rel[0].substr(0, rel[0].length-1) ];
-				}
-			}
-			if (last_q !== 'page:'+q)
-			{
-				last_q = 'page:'+q;
-				// Make an AJAX call to standard MW autocomplete API
-				$.ajax({
-					url: mw.util.wikiScript('api'),
-					type: 'GET',
-					dataType: 'json',
-					data: {
-						action: 'opensearch',
-						format: 'json',
-						search: q,
-						canonicalns: 1,
-						suggest: ''
-					},
-					success: function(data)
-					{
-						var opts = [];
-						for (var i in data[1])
-						{
-							opts.push([ data[1][i], data[1][i] ]);
-						}
-						showHint(opts);
-					}
-				});
-			}
+			handlePageLink(i);
 		}
 		else if (ta.value[i] == '#')
 		{
-			// Link to an article section
+			// Save # position
 			linkstart = i+1;
 			setHintPos(linkstart);
-			i = findCharsBack(i, '\n\r[]');
+			i = findCharsBack(i, '\n\r[]{}');
 			if (i > 0 && ta.value[i] == '[' && ta.value[i-1] == '[')
 			{
-				// OK, # actually begins after [[
-				var page = ta.value.substr(i+1, linkstart-i-2);
-				if (page == '')
-				{
-					page = mw.config.get('wgCanonicalNamespace')+':'+mw.config.get('wgTitle');
-				}
-				findLinkEnd();
-				var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
-				var q = ta.value.substr(linkstart, curend-linkstart).trim();
-				if (last_q !== 'sections:'+page)
-				{
-					last_q = 'sections:'+page;
-					$.ajax({
-						url: mw.util.wikiScript('api'),
-						type: 'GET',
-						dataType: 'json',
-						data: {
-							action: 'parse',
-							format: 'json',
-							prop: 'sections',
-							page: page
-						},
-						success: function(data)
-						{
-							var opts = [];
-							if (data && data.parse && data.parse.sections)
-							{
-								for (var i in data.parse.sections)
-								{
-									opts.push([ data.parse.sections[i].number+'. '+data.parse.sections[i].line, data.parse.sections[i].line ]);
-								}
-							}
-							showHint(opts);
-						}
-					});
-				}
+				// # actually begins after [[ - we are inside a page link
+				handlePageSection(i);
 			}
 		}
 		else
