@@ -110,6 +110,8 @@ $(document).ready(function()
 		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
 		linkrel = null;
+		// First letter is always uppercased
+		q = q.substr(0, 1).toUpperCase()+q.substr(1);
 		if (q[0] == '/')
 		{
 			// Subpage
@@ -139,7 +141,8 @@ $(document).ready(function()
 		{
 			if (q[0] == ':')
 			{
-				q = q.substr(1);
+				// First letter is second, re-uppercase it
+				q = q.substr(1, 2).toUpperCase()+q.substr(2);
 			}
 			else if (!new RegExp('^('+tplRegexp+'):').exec(q))
 			{
