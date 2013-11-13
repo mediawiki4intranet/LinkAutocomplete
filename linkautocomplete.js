@@ -244,10 +244,16 @@ $(document).ready(function()
 			var showPFHint = function()
 			{
 				var opts = [];
+				var last = '';
 				for (var i = 0; i < pfs.length; i++)
 				{
 					if (pfs[i][0].substr(0, q.length).toLowerCase() == q)
 					{
+						if (pfs[i][1] != last)
+						{
+							opts.push([ pfs[i][1], '', true ]);
+							last = pfs[i][1];
+						}
 						opts.push([ pfs[i][0], pfs[i][0] ]);
 					}
 				}
@@ -285,13 +291,15 @@ $(document).ready(function()
 		{
 			// Page link
 			handlePageLink(i);
+			return;
 		}
-		else if (i > 0 && ta.value[i] == '{' && ta.value[i-1] == '{')
+		if (i > 0 && ta.value[i] == '{' && ta.value[i-1] == '{')
 		{
 			// Template link
 			handlePageLink(i, true);
+			return;
 		}
-		else if (ta.value[i] == '#')
+		if (ta.value[i] == '#')
 		{
 			// Maybe a hashed parser function of a page section
 			// Save position of '#'
@@ -301,7 +309,12 @@ $(document).ready(function()
 			if (i > 0 && ta.value[i] == '{' && ta.value[i-1] == '{')
 			{
 				// # begins just after {{ - it's a hashed parser function
-				handleParserFunction(i, true);
+				if (ta.value.substr(i, ta.selectionStart-i).indexOf(':') == -1)
+				{
+					// ...and we are not inside the parameter list
+					handleParserFunction(i, true);
+					return;
+				}
 			}
 			else
 			{
@@ -310,14 +323,12 @@ $(document).ready(function()
 				{
 					// # begins after [[ - we are inside a page link
 					handlePageSection(i);
+					return;
 				}
 			}
 		}
-		else
-		{
-			last_q = null;
-			linkhint.replaceItems([]);
-		}
+		last_q = null;
+		linkhint.replaceItems([]);
 	});
 	linkhint.addRmListener('mousedown', function() {
 		linkhint.onChange();

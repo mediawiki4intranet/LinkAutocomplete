@@ -2,7 +2,7 @@
 
    Homepage: http://yourcmc.ru/wiki/SimpleAutocomplete
    License: MPL 2.0+ (http://www.mozilla.org/MPL/2.0/)
-   Version: 2013-10-18
+   Version: 2013-11-13
    (c) Vitaliy Filippov 2011-2013
 
    Usage:
@@ -18,7 +18,7 @@
          newOptions = [ [ name, value, disabled, checked ] ], [ name, value ], ... ]
            name = HTML option name
            value = plaintext option value
-           disabled = only meaningful when multipleListener is set
+           disabled = prevent selection of this option
            checked = only meaningful when multipleListener is set
          append = 'more' parameter should be passed here
        Callback parameters:
@@ -165,12 +165,11 @@ SimpleAutocomplete.prototype.replaceItems = function(items, append)
                 this.disable();
             return;
         }
+        while (this.selectedIndex < items.length && items[this.selectedIndex][2])
+            this.selectedIndex++;
         this.hintLayer.innerHTML = this.prompt ? '<div class="hintPrompt">'+this.prompt+'</div>' : '';
         this.enable();
     }
-    if (!this.multipleListener)
-        for (var i in items)
-            items[i][2] = 0;
     if (this.multipleDelimiter)
     {
         var h = {};
@@ -187,7 +186,7 @@ SimpleAutocomplete.prototype.replaceItems = function(items, append)
     }
 };
 
-// Add removable listener (remember the function)
+// Add removable listener on this.input (remember the function)
 SimpleAutocomplete.prototype.addRmListener = function(n, f)
 {
     this.closure[n] = f;
@@ -254,6 +253,8 @@ SimpleAutocomplete.prototype.moveHighlight = function(by)
     var n = this.selectedIndex+by;
     if (n < 0)
         n = 0;
+    while (this.items[n] && this.items[n][2])
+        n += by;
     var elem = document.getElementById(this.id+'_item_'+n);
     if (!elem)
         return true;
@@ -398,7 +399,7 @@ SimpleAutocomplete.prototype.enable = function()
 SimpleAutocomplete.prototype.preventCheck = function(ev)
 {
     ev = ev||window.event;
-    return stopEvent(ev, false, true);
+    return stopEvent(ev, true, true);
 };
 
 // Cancel event propagation
