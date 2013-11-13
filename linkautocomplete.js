@@ -229,7 +229,7 @@ $(document).ready(function()
 	var handleParserFunction = function(i, sfh_hash)
 	{
 		findLinkEnd('\n\r:}');
-		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
+		var curend = ta.selectionStart > linkstart ? ta.selectionStart : linkstart;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
 		if (sfh_hash)
 		{
