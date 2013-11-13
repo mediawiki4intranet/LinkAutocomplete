@@ -7,6 +7,7 @@
 $(document).ready(function()
 {
 	var ta = document.getElementById('wpTextbox1');
+	var tplRegexp = 'Template|Шаблон';
 	if (!ta)
 	{
 		return;
@@ -43,7 +44,7 @@ $(document).ready(function()
 	}
 	ta.parentNode.insertBefore(tao, ta);
 	// Helper functions and local variables
-	var linkstart, linkend, linkafter = '', linkrel = null, hinttop, hintleft, last_q = null;
+	var linkstart, linkend, linkend_chars, linkafter = null, linkrel = null, last_q = null;
 	var findChars = function(i, chars)
 	{
 		var j;
@@ -56,9 +57,10 @@ $(document).ready(function()
 		for (j = i; j >= 0 && chars.indexOf(ta.value[j]) == -1; j--) {}
 		return j;
 	};
-	var findLinkEnd = function()
+	var findLinkEnd = function(chars)
 	{
-		linkend = findChars(linkstart, '\n\r|]#');
+		linkend_chars = chars || '\n\r|]#';
+		linkend = findChars(linkstart, linkend_chars);
 		if (linkend >= ta.value.length || ta.value[linkend] == '\n' || ta.value[linkend] == '\r')
 		{
 			// Do not cut to the end of line if none of ] | # characters are found
@@ -79,29 +81,30 @@ $(document).ready(function()
 		tas.innerHTML = htmlspecialchars(ta.value.substr(0, pos));
 		tas2.innerHTML = htmlspecialchars(ta.value.substr(pos, j));
 		var rects = tas.getClientRects(),
-			lastRect = rects[rects.length-1];
-		hinttop = lastRect.bottom - ta.scrollTop + document.documentElement.scrollTop,
-		hintleft = lastRect.right;
+			lastRect = rects[rects.length-1],
+			hinttop = lastRect.bottom - ta.scrollTop + document.documentElement.scrollTop,
+			hintleft = lastRect.right;
+		linkhint.hintLayer.style.top = hinttop+'px';
+		linkhint.hintLayer.style.left = hintleft+'px';
 	};
 	var showHint = function(opts)
 	{
 		if (opts.length)
 		{
-			linkhint.hintLayer.style.top = hinttop+'px';
-			linkhint.hintLayer.style.left = hintleft+'px';
 			linkhint.hintLayer.style.display = '';
 		}
 		linkhint.replaceItems(opts);
 	};
-	var handlePageLink = function(i)
+	// Suggest either a page link or a template, if is_tpl is true
+	var handlePageLink = function(i, is_tpl)
 	{
 		i--;
 		linkstart = i+2;
-		if (ta.value[linkstart] == ':')
+		if (!is_tpl && ta.value[linkstart] == ':')
 		{
 			linkstart++;
 		}
-		findLinkEnd();
+		findLinkEnd(is_tpl ? '\n\r|}' : null);
 		setHintPos(linkstart);
 		// Handle relative links
 		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
@@ -132,10 +135,21 @@ $(document).ready(function()
 				linkrel = [ linkrel.length, rel[0].substr(0, rel[0].length-1) ];
 			}
 		}
-		linkafter = '|]#'.indexOf(ta.value[linkend]) == -1 ? ']]' : '';
-		if (last_q !== 'page:'+q)
+		else if (is_tpl)
 		{
-			last_q = 'page:'+q;
+			if (q[0] == ':')
+			{
+				q = q.substr(1);
+			}
+			else if (!new RegExp('^('+tplRegexp+'):').exec(q))
+			{
+				q = 'Template:'+q;
+			}
+		}
+		linkafter = is_tpl ? [ '|}', '}}', 0 ] : [ '|]#', ']]', 2 ];
+		if (last_q !== (is_tpl ? 'tpl:' : 'page:') + q)
+		{
+			last_q = (is_tpl ? 'tpl:' : 'page:') + q;
 			// Make an AJAX call to standard MW autocomplete API
 			$.ajax({
 				url: mw.util.wikiScript('api'),
@@ -151,9 +165,21 @@ $(document).ready(function()
 				success: function(data)
 				{
 					var opts = [];
-					for (var i in data[1])
+					if (is_tpl && !linkrel)
 					{
-						opts.push([ data[1][i], data[1][i] ]);
+						for (var i in data[1])
+						{
+							var m = new RegExp('^('+tplRegexp+'):(.*)$').exec(data[1][i]);
+							m = m ? m[2] : ':'+data[1][i];
+							opts.push([ data[1][i], m ]);
+						}
+					}
+					else
+					{
+						for (var i in data[1])
+						{
+							opts.push([ data[1][i], data[1][i] ]);
+						}
 					}
 					showHint(opts);
 				}
@@ -170,7 +196,7 @@ $(document).ready(function()
 		findLinkEnd();
 		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
-		linkafter = '|]'.indexOf(ta.value[linkend]) == -1 ? ']]' : '';
+		linkafter = [ '|]', ']]', 2 ];
 		if (last_q !== 'sections:'+page)
 		{
 			last_q = 'sections:'+page;
@@ -202,12 +228,7 @@ $(document).ready(function()
 	var pfs;
 	var handleParserFunction = function(i, sfh_hash)
 	{
-		linkend = findChars(linkstart, '\n\r:}');
-		if (linkend >= ta.value.length || ta.value[linkend] == '\n' || ta.value[linkend] == '\r')
-		{
-			// Do not cut to the end of line if none of : } characters are found
-			linkend = findChars(linkstart, ' \t\n\r');
-		}
+		findLinkEnd('\n\r:}');
 		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
 		if (sfh_hash)
@@ -219,7 +240,7 @@ $(document).ready(function()
 		{
 			last_q = 'pf:'+q;
 			linkrel = sfh_hash ? [ 1, '' ] : null;
-			linkafter = ':}'.indexOf(ta.value[linkend]) == -1 ? ': }}' : '';
+			linkafter = [ ':}', ': }}', 2 ];
 			var showPFHint = function()
 			{
 				var opts = [];
@@ -259,14 +280,21 @@ $(document).ready(function()
 	var linkhint = new SimpleAutocomplete(ta, function(linkhint)
 	{
 		linkstart = -1;
-		var i = findCharsBack(ta.selectionStart-1, '\n\r[]#');
+		var i = findCharsBack(ta.selectionStart-1, '\n\r[]#{}|');
 		if (i > 0 && ta.value[i] == '[' && ta.value[i-1] == '[')
 		{
+			// Page link
 			handlePageLink(i);
+		}
+		else if (i > 0 && ta.value[i] == '{' && ta.value[i-1] == '{')
+		{
+			// Template link
+			handlePageLink(i, true);
 		}
 		else if (ta.value[i] == '#')
 		{
-			// Save # position
+			// Maybe a hashed parser function of a page section
+			// Save position of '#'
 			linkstart = i+1;
 			setHintPos(linkstart);
 			for (i--; i >= 0 && ' \t'.indexOf(ta.value[i]) != -1; i--) {}
@@ -280,7 +308,7 @@ $(document).ready(function()
 				i = findCharsBack(i, '\n\r[]{}');
 				if (i > 0 && ta.value[i] == '[' && ta.value[i-1] == '[')
 				{
-					// # actually begins after [[ - we are inside a page link
+					// # begins after [[ - we are inside a page link
 					handlePageSection(i);
 				}
 			}
@@ -320,9 +348,12 @@ $(document).ready(function()
 			// This is needed to insert relative links
 			v = linkrel[1] + v.replace(/^[^:]*:/, '').substr(linkrel[0]);
 		}
-		v += linkafter;
-		this.input.value = this.input.value.substr(0, linkstart) + v + this.input.value.substr(linkend);
-		this.input.selectionStart = this.input.selectionEnd = linkstart + v.length;
+		findLinkEnd(linkend_chars);
+		// linkafter = [ <preventing chars>, <what to insert if no preventing_chars are found>, <cursor offset> ]
+		var after = linkafter[0].indexOf(this.input.value[linkend]) == -1;
+		this.input.value = this.input.value.substr(0, linkstart) + v + (after ? linkafter[1] : '') +
+			this.input.value.substr(linkend);
+		this.input.selectionStart = this.input.selectionEnd = linkstart + v.length + (after ? linkafter[2] : 0);
 		this.hide();
 		last_q = null;
 		this.input.focus();
