@@ -59,7 +59,7 @@ $(document).ready(function()
 	};
 	var findLinkEnd = function(chars)
 	{
-		linkend_chars = chars || '\n\r|]#';
+		linkend_chars = chars || '\n\r|[]#';
 		linkend = findChars(linkstart, linkend_chars);
 		if (linkend >= ta.value.length || ta.value[linkend] == '\n' || ta.value[linkend] == '\r')
 		{
@@ -104,7 +104,7 @@ $(document).ready(function()
 		{
 			linkstart++;
 		}
-		findLinkEnd(is_tpl ? '\n\r|}' : null);
+		findLinkEnd(is_tpl ? '\n\r|{}' : null);
 		setHintPos(linkstart);
 		// Handle relative links
 		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
@@ -231,7 +231,7 @@ $(document).ready(function()
 	var pfs;
 	var handleParserFunction = function(i, sfh_hash)
 	{
-		findLinkEnd('\n\r:}');
+		findLinkEnd('\n\r:{}');
 		var curend = ta.selectionStart > linkstart ? ta.selectionStart : linkstart;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
 		if (sfh_hash)
