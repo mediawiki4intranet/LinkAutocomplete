@@ -24,7 +24,8 @@
  * @author Vitaliy Filippov <vitalif@mail.ru>
  */
 
-# TODO: Autocomplete templates and parser functions
+# TODO: Autocomplete template and parser function parameters
+# TODO: Autocomplete semantic properties [[Property::Value]]
 # TODO: Maybe cache loaded items?
 
 $wgHooks['BeforePageDisplay'][] = 'efLinkAutocomplete_BPD';

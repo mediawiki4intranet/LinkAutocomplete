@@ -231,7 +231,15 @@ $(document).ready(function()
 	var pfs;
 	var handleParserFunction = function(i, sfh_hash)
 	{
-		findLinkEnd('\n\r:{}');
+		// Stop parser function at first non-word character
+		linkend_chars = function()
+		{
+			var word = /[^\w\-]/g;
+			word.lastIndex = linkstart;
+			word.exec(ta.value);
+			linkend = word.lastIndex-1;
+		};
+		linkend_chars();
 		var curend = ta.selectionStart > linkstart ? ta.selectionStart : linkstart;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
 		if (sfh_hash)
@@ -362,7 +370,14 @@ $(document).ready(function()
 			// This is needed to insert relative links
 			v = linkrel[1] + v.replace(/^[^:]*:/, '').substr(linkrel[0]);
 		}
-		findLinkEnd(linkend_chars);
+		if (typeof linkend_chars == 'function')
+		{
+			linkend_chars();
+		}
+		else
+		{
+			findLinkEnd(linkend_chars);
+		}
 		// linkafter = [ <preventing chars>, <what to insert if no preventing_chars are found>, <cursor offset> ]
 		var after = linkafter[0].indexOf(this.input.value[linkend]) == -1;
 		this.input.value = this.input.value.substr(0, linkstart) + v + (after ? linkafter[1] : '') +
