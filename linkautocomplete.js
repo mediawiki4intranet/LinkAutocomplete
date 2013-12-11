@@ -95,7 +95,8 @@ $(document).ready(function()
 		}
 		linkhint.replaceItems(opts);
 	};
-	// Suggest either a page link or a template, if is_tpl is true
+	// Suggest either a page link, if is_tpl is false, or a template/parser function without hash, if is_tpl is true.
+	// Also handles relative links and templates... that's why all these functionality is messed up in one function.
 	var handlePageLink = function(i, is_tpl)
 	{
 		i--;
@@ -174,7 +175,31 @@ $(document).ready(function()
 						{
 							var m = new RegExp('^('+tplRegexp+'):(.*)$').exec(data[1][i]);
 							m = m ? m[2] : ':'+data[1][i];
+							if (!opts)
+							{
+								opts.push([ 'Шаблоны', '', true ]);
+							}
 							opts.push([ data[1][i], m ]);
+						}
+						var pfs = window.LinkAutocompleteParserFunctions;
+						q = q.replace(new RegExp('^('+tplRegexp+'):'), '').toLowerCase();
+						var last = '';
+						for (var i = 0; i < pfs.length; i++)
+						{
+							if (pfs[i][0].substr(0, q.length).toLowerCase() == q &&
+								pfs[i][0][0] != '#')
+							{
+								if (pfs[i][1] != last)
+								{
+									if (last == '')
+									{
+										opts.push([ 'Функции парсера без #', '', true ]);
+									}
+									opts.push([ pfs[i][1], '', true ]);
+									last = pfs[i][1];
+								}
+								opts.push([ pfs[i][0], pfs[i][0] ]);
+							}
 						}
 					}
 					else
@@ -228,8 +253,7 @@ $(document).ready(function()
 			});
 		}
 	};
-	var pfs;
-	var handleParserFunction = function(i, sfh_hash)
+	var handleParserFunction = function(sfh_hash)
 	{
 		// Stop parser function at first non-word character
 		linkend_chars = function()
@@ -237,7 +261,7 @@ $(document).ready(function()
 			var word = /[^\w\-]/g;
 			word.lastIndex = linkstart;
 			word.exec(ta.value);
-			linkend = word.lastIndex-1;
+			linkend = word.lastIndex ? word.lastIndex-1 : ta.value.length;
 		};
 		linkend_chars();
 		var curend = ta.selectionStart > linkstart ? ta.selectionStart : linkstart;
@@ -252,45 +276,26 @@ $(document).ready(function()
 			last_q = 'pf:'+q;
 			linkrel = sfh_hash ? [ 1, '' ] : null;
 			linkafter = [ ':}', ': }}', 2 ];
-			var showPFHint = function()
+			var opts = [];
+			var last = '';
+			var pfs = window.LinkAutocompleteParserFunctions;
+			for (var i = 0; i < pfs.length; i++)
 			{
-				var opts = [];
-				var last = '';
-				for (var i = 0; i < pfs.length; i++)
+				if (pfs[i][0].substr(0, q.length).toLowerCase() == q)
 				{
-					if (pfs[i][0].substr(0, q.length).toLowerCase() == q)
+					if (pfs[i][1] != last)
 					{
-						if (pfs[i][1] != last)
+						if (last == '')
 						{
-							opts.push([ pfs[i][1], '', true ]);
-							last = pfs[i][1];
+							opts.push([ 'Функции парсера', '', true ]);
 						}
-						opts.push([ pfs[i][0], pfs[i][0] ]);
+						opts.push([ pfs[i][1], '', true ]);
+						last = pfs[i][1];
 					}
+					opts.push([ pfs[i][0], pfs[i][0] ]);
 				}
-				showHint(opts);
-			};
-			if (!pfs)
-			{
-				// Parser functions are only loaded 1 time
-				$.ajax({
-					url: mw.config.get('wgScript'),
-					type: 'GET',
-					dataType: 'json',
-					data: {
-						action: 'ajax',
-						rs: 'efLinkAutocomplete_ParserFunctions'
-					},
-					success: function(data) {
-						pfs = data;
-						showPFHint();
-					}
-				});
 			}
-			else
-			{
-				showPFHint();
-			}
+			showHint(opts);
 		}
 	};
 	// Create SimpleAutocomplete...
@@ -312,18 +317,18 @@ $(document).ready(function()
 		}
 		if (ta.value[i] == '#')
 		{
-			// Maybe a hashed parser function of a page section
+			// Maybe a hashed parser function or a page section
 			// Save position of '#'
 			linkstart = i+1;
 			setHintPos(linkstart);
 			for (i--; i >= 0 && ' \t'.indexOf(ta.value[i]) != -1; i--) {}
 			if (i > 0 && ta.value[i] == '{' && ta.value[i-1] == '{')
 			{
-				// # begins just after {{ - it's a hashed parser function
+				// # begins just after {{ - it's a parser function with leading hash
 				if (ta.value.substr(i, ta.selectionStart-i).indexOf(':') == -1)
 				{
-					// ...and we are not inside the parameter list
-					handleParserFunction(i, true);
+					// ...and we are not inside its parameter list
+					handleParserFunction(true);
 					return;
 				}
 			}

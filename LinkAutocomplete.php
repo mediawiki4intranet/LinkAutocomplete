@@ -24,6 +24,8 @@
  * @author Vitaliy Filippov <vitalif@mail.ru>
  */
 
+# TODO: Correctly autocomplete magic words like {{FULLPAGENAME}} and __NOTOC__
+# TODO: Autocomplete SFH_NO_HASH parser functions
 # TODO: Autocomplete template and parser function parameters
 # TODO: Autocomplete semantic properties [[Property::Value]]
 # TODO: Maybe cache loaded items?
@@ -37,6 +39,7 @@ $wgResourceModules['LinkAutocomplete'] = array(
     'remoteExtPath' => basename(__DIR__),
     'scripts' => array('hinter.js', 'linkautocomplete.js'),
     'styles' => array('hinter.css'),
+    'class' => 'ResourceLoaderLinkAutocompleteModule',
 );
 
 $wgExtensionCredits['other'][] = array(
@@ -46,6 +49,25 @@ $wgExtensionCredits['other'][] = array(
     'url'            => 'http://wiki.4intra.net/LinkAutocomplete',
     'description'    => 'Link autocompleter for MediaWiki editbox',
 );
+
+// Append magic word data to the linkautocomplete script
+class ResourceLoaderLinkAutocompleteModule extends ResourceLoaderFileModule
+{
+    public function getScript(ResourceLoaderContext $context)
+    {
+        $res = parent::getScript($context);
+        $res .= efLinkAutocomplete_ParserFunctions(true);
+        return $res;
+    }
+
+    public function getScriptURLsForDebug(ResourceLoaderContext $context)
+    {
+        global $wgScript;
+        $res = parent::getScriptURLsForDebug($context);
+        $res[] = $wgScript.'?action=ajax&rs=efLinkAutocomplete_ParserFunctions&rsargs[]=1';
+        return $res;
+    }
+}
 
 function efLinkAutocomplete()
 {
@@ -91,44 +113,84 @@ class TrackingParser extends Parser
     }
 }
 
-function efLinkAutocomplete_ParserFunctions()
+function efLinkAutocomplete_ParserFunctions($asScript = false)
 {
+    global $wgContLang;
+    // Initialise parser
     $parser = new TrackingParser();
-    $parser->firstCallInit();
+    $parser->parse(" ", Title::newMainPage(), new ParserOptions);
+    $p = new WikiPage($parser->mTitle);
+    $parser->mRevisionId = $p->getRevision()->getId();
+    // Process magic words
     $result = array();
-    foreach ($parser->mFunctionHooks as $f => $settings)
+    $allNames = array_merge(MagicWord::getDoubleUnderscoreArray()->names, MagicWord::getVariableIds());
+    foreach ($allNames as $f)
     {
         $mag = MagicWord::get($f);
-        $setter = $parser->setters[$f];
         foreach ($mag->mSynonyms as $f)
         {
-            if (!$mag->mCaseSensitive)
-            {
-                $f = mb_strtolower($f);
-            }
-            $f = rtrim($f, ':');
+            // Prefer english synonyms
             if (preg_match('/^[\x20-\x7F]+$/', $f))
             {
-                // Prefer english synonym
                 break;
             }
         }
+        // Some variables have trailing ':' in name...
+        $f = rtrim($f, ':');
+        // Determine type of this magic word
+        if (substr($f, 0, 2) == '__' && substr($f, -2) == '__')
+        {
+            // Double-underscore switch
+            $setter = '__';
+        }
+        elseif ($parser->getVariableValue($f) !== NULL ||
+            $parser->getVariableValue($wgContLang->lc($f)) !== NULL)
+        {
+            // Variable
+            $setter = 'var';
+        }
+        $result[$f] = array($f, $setter);
+    }
+    // Process parser functions
+    foreach ($parser->mFunctionHooks as $f => $settings)
+    {
+        $mag = MagicWord::get($f);
+        foreach ($mag->mSynonyms as $f)
+        {
+            // Prefer english synonyms
+            if (preg_match('/^[\x20-\x7F]+$/', $f))
+            {
+                break;
+            }
+        }
+        // Some parser functions also have trailing ':' in name...
+        $f = rtrim($f, ':');
+        if (!$mag->mCaseSensitive)
+        {
+            $f = $wgContLang->lc($f);
+        }
+        if (isset($result[$f]))
+        {
+            // Most (but not all) variables are listed both in mVariableIds and mFunctionHooks
+            // So skip them here
+            continue;
+        }
+        $setter = isset($parser->setters[$f]) ? $parser->setters[$f] : 'core';
         if (!($settings[1] & Parser::SFH_NO_HASH))
         {
             $f = "#$f";
         }
-        $result[] = array($f, $setter);
+        $result[$f] = array($f, $setter);
     }
-    usort($result, function($a, $b)
+    // first list extension functions, then core, then magic words
+    $section = array('core' => 1, 'var' => 2, '__' => 3);
+    usort($result, function($a, $b) use($section)
     {
-        // first list extension functions
-        if ($a[1] == 'core' && $b[1] != 'core')
+        $as = isset($section[$a[1]]) ? $section[$a[1]] : 0;
+        $bs = isset($section[$b[1]]) ? $section[$b[1]] : 0;
+        if ($as != $bs)
         {
-            return 1;
-        }
-        elseif ($a[1] != 'core' && $b[1] == 'core')
-        {
-            return -1;
+            return $as-$bs;
         }
         // first list lowercase functions
         elseif (mb_strtolower($a[0]{0}) == $a[0]{0} && mb_strtolower($b[0]{0}) != $b[0]{0})
@@ -141,5 +203,6 @@ function efLinkAutocomplete_ParserFunctions()
         }
         return strcmp($a[1].'-'.$a[0], $b[1].'-'.$b[0]);
     });
-    return json_encode($result);
+    $result = json_encode(array_values($result));
+    return $asScript ? "window.LinkAutocompleteParserFunctions = $result;" : $result;
 }
