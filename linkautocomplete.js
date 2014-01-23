@@ -359,8 +359,18 @@ $(document).ready(function()
 		findLinkEnd();
 		// linkafter = [ <preventing chars>, <what to insert if no preventing_chars are found>, <cursor offset> ]
 		var after = linkafter[0].indexOf(this.input.value[linkend]) == -1;
-		this.input.value = this.input.value.substr(0, linkstart) + v + (after ? linkafter[1] : '') +
-			this.input.value.substr(linkend);
+		if (!!window.webkitURL)
+		{
+			// This is needed for Undo to work in WebKit browsers (and only in them)
+			this.input.selectionStart = linkstart;
+			this.input.selectionEnd = linkend;
+			document.execCommand('insertText', false, v + (after ? linkafter[1] : ''));
+		}
+		else
+		{
+			this.input.value = this.input.value.substr(0, linkstart) + v + (after ? linkafter[1] : '') +
+				this.input.value.substr(linkend);
+		}
 		this.input.selectionStart = this.input.selectionEnd = linkstart + v.length + (after ? linkafter[2] : 0);
 		this.hide();
 		last_q = null;
