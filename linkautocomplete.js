@@ -42,6 +42,14 @@ $(document).ready(function()
 		s = s.replace(/"/g, '&quot;'); //"
 		return s;
 	}
+	// Wrap textarea in a div if WikiEditor is not loaded
+	if (ta.parentNode.className.substr(0, 11) != 'wikiEditor-')
+	{
+		var np = document.createElement('div');
+		np.style.position = 'relative';
+		ta.parentNode.insertBefore(np, ta);
+		np.appendChild(ta);
+	}
 	ta.parentNode.insertBefore(tao, ta);
 	// Helper functions and local variables
 	var linkstart, linkend, linkafter = null, linkrel = null, last_q = null;
