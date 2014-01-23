@@ -76,7 +76,7 @@ $(document).ready(function()
 		tas2.innerHTML = htmlspecialchars(ta.value.substr(pos, j));
 		var rects = tas.getClientRects(),
 			lastRect = rects[rects.length-1],
-			hinttop = lastRect.bottom - ta.scrollTop + document.documentElement.scrollTop,
+			hinttop = lastRect.bottom - ta.scrollTop + document.documentElement.scrollTop + document.body.scrollTop,
 			hintleft = lastRect.right;
 		linkhint.hintLayer.style.top = hinttop+'px';
 		linkhint.hintLayer.style.left = hintleft+'px';
