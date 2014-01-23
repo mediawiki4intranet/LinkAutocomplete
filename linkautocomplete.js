@@ -44,7 +44,7 @@ $(document).ready(function()
 	}
 	ta.parentNode.insertBefore(tao, ta);
 	// Helper functions and local variables
-	var linkstart, linkend, linkend_chars, linkafter = null, linkrel = null, last_q = null;
+	var linkstart, linkend, linkafter = null, linkrel = null, last_q = null;
 	var findChars = function(i, chars)
 	{
 		var j;
@@ -59,13 +59,7 @@ $(document).ready(function()
 	};
 	var findLinkEnd = function(chars)
 	{
-		linkend_chars = chars || '\n\r|[]#';
-		linkend = findChars(linkstart, linkend_chars);
-		if (linkend >= ta.value.length || ta.value[linkend] == '\n' || ta.value[linkend] == '\r')
-		{
-			// Do not cut to the end of line if none of ] | # characters are found
-			linkend = findChars(linkstart, ' \t\n\r');
-		}
+		linkend = ta.selectionStart;
 	};
 	var setHintPos = function(pos)
 	{
@@ -104,10 +98,10 @@ $(document).ready(function()
 		{
 			linkstart++;
 		}
-		findLinkEnd(is_tpl ? '\n\r|{}' : null);
+		findLinkEnd();
 		setHintPos(linkstart);
 		// Handle relative links
-		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
+		var curend = ta.selectionStart > linkstart ? ta.selectionStart : linkend;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
 		linkrel = null;
 		// First letter is always uppercased
@@ -197,7 +191,7 @@ $(document).ready(function()
 			page = mw.config.get('wgCanonicalNamespace')+':'+mw.config.get('wgTitle');
 		}
 		findLinkEnd();
-		var curend = (ta.selectionStart < linkend && ta.selectionStart > linkstart) ? ta.selectionStart : linkend;
+		var curend = ta.selectionStart > linkstart ? ta.selectionStart : linkend;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
 		linkafter = [ '|]', ']]', 2 ];
 		if (last_q !== 'sections:'+page)
@@ -231,15 +225,7 @@ $(document).ready(function()
 	var pfs;
 	var handleParserFunction = function(i, sfh_hash)
 	{
-		// Stop parser function at first non-word character
-		linkend_chars = function()
-		{
-			var word = /[^\w\-]/g;
-			word.lastIndex = linkstart;
-			word.exec(ta.value);
-			linkend = word.lastIndex-1;
-		};
-		linkend_chars();
+		findLinkEnd();
 		var curend = ta.selectionStart > linkstart ? ta.selectionStart : linkstart;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
 		if (sfh_hash)
@@ -370,14 +356,7 @@ $(document).ready(function()
 			// This is needed to insert relative links
 			v = linkrel[1] + v.replace(/^[^:]*:/, '').substr(linkrel[0]);
 		}
-		if (typeof linkend_chars == 'function')
-		{
-			linkend_chars();
-		}
-		else
-		{
-			findLinkEnd(linkend_chars);
-		}
+		findLinkEnd();
 		// linkafter = [ <preventing chars>, <what to insert if no preventing_chars are found>, <cursor offset> ]
 		var after = linkafter[0].indexOf(this.input.value[linkend]) == -1;
 		this.input.value = this.input.value.substr(0, linkstart) + v + (after ? linkafter[1] : '') +
