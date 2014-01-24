@@ -67,6 +67,7 @@ $(document).ready(function()
 	};
 	var findLinkEnd = function(chars)
 	{
+		// Never cut anything
 		linkend = ta.selectionStart;
 	};
 	var setHintPos = function(pos)
@@ -151,7 +152,7 @@ $(document).ready(function()
 				q = 'Template:'+q;
 			}
 		}
-		linkafter = is_tpl ? [ '|}', '}}', 0 ] : [ '|]#', ']]', 2 ];
+		linkafter = is_tpl ? [ '|}', '}}', 0, '|', '}}' ] : [ '|]#', ']]', 2, '|', ']]' ];
 		if (last_q !== (is_tpl ? 'tpl:' : 'page:') + q)
 		{
 			last_q = (is_tpl ? 'tpl:' : 'page:') + q;
@@ -201,7 +202,7 @@ $(document).ready(function()
 		findLinkEnd();
 		var curend = ta.selectionStart > linkstart ? ta.selectionStart : linkend;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
-		linkafter = [ '|]', ']]', 2 ];
+		linkafter = [ '|]', ']]', 2, '|', ']]' ];
 		if (last_q !== 'sections:'+page)
 		{
 			last_q = 'sections:'+page;
@@ -245,7 +246,7 @@ $(document).ready(function()
 		{
 			last_q = 'pf:'+q;
 			linkrel = sfh_hash ? [ 1, '' ] : null;
-			linkafter = [ ':}', ': }}', 2 ];
+			linkafter = [ ':}', ': }}', 2, ': ', '}}' ];
 			var showPFHint = function()
 			{
 				var opts = [];
@@ -365,21 +366,86 @@ $(document).ready(function()
 			v = linkrel[1] + v.replace(/^[^:]*:/, '').substr(linkrel[0]);
 		}
 		findLinkEnd();
-		// linkafter = [ <preventing chars>, <what to insert if no preventing_chars are found>, <cursor offset> ]
+		// linkafter[0] = chars that prevent inserting linkafter[1] if found at linkend
+		// linkafter[1] = what to insert if no preventing chars are found
+		// linkafter[2] = cursor offset from inserted link after inserting linkafter[1]
+		// linkafter[3,4] = prefix and suffix for wrapping text up to the first space
+		//   if the link is inserted before a non-space character
+		//   i.e. ^Some text --> [[L^Some text --> [[Link|Some]] text
+		//   but ^ Some text --> [[L^ Some text --> [[Link]] Some text
 		var after = linkafter[0].indexOf(this.input.value[linkend]) == -1;
+		var pos = 0;
+		if (after)
+		{
+			// If the cursor is at non-space character, wrap up to
+			// the first space, while respecting {} and [] brace nesting
+			var space = /\s/.exec(this.input.value[linkend]);
+			if (!space)
+			{
+				var stack = [];
+				var re = /[\[\]\s\{\}]/g; // tags?
+				var m;
+				var i = linkend;
+				while (i < this.input.value.length)
+				{
+					re.lastIndex = i;
+					m = re.exec(this.input.value);
+					if (!m)
+					{
+						i = this.input.value.length;
+						break;
+					}
+					i = re.lastIndex;
+					if (m[0] == '{')
+					{
+						stack.push('}');
+					}
+					else if (m[0] == '{')
+					{
+						stack.push(']');
+					}
+					else if (stack.length)
+					{
+						if (m[0] == stack[stack.length-1])
+						{
+							stack.pop();
+						}
+					}
+					else
+					{
+						i--;
+						break;
+					}
+				}
+				after = linkafter[3] + this.input.value.substr(linkend, i-linkend) + linkafter[4];
+				// Place cursor after wrap prefix
+				pos = linkafter[3].length;
+				linkend = i;
+			}
+			else
+			{
+				after = linkafter[1];
+				// Place cursor after autocompleted text + as specified in linkafter[2]
+				pos = linkafter[2];
+			}
+		}
+		else
+		{
+			after = '';
+		}
 		if (!!window.webkitURL)
 		{
 			// This is needed for Undo to work in WebKit browsers (and only in them)
 			this.input.selectionStart = linkstart;
 			this.input.selectionEnd = linkend;
-			document.execCommand('insertText', false, v + (after ? linkafter[1] : ''));
+			document.execCommand('insertText', false, v + after);
 		}
 		else
 		{
-			this.input.value = this.input.value.substr(0, linkstart) + v + (after ? linkafter[1] : '') +
+			this.input.value = this.input.value.substr(0, linkstart) + v + after +
 				this.input.value.substr(linkend);
 		}
-		this.input.selectionStart = this.input.selectionEnd = linkstart + v.length + (after ? linkafter[2] : 0);
+		this.input.selectionStart = this.input.selectionEnd = linkstart + v.length + pos;
 		this.hide();
 		last_q = null;
 		this.input.focus();
