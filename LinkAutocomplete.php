@@ -52,8 +52,9 @@ function efLinkAutocomplete()
     global $wgResourceModules;
     if (isset($wgResourceModules['ext.wikiEditor']))
     {
-        // Load after WikiEditor if it is present
-        $wgResourceModules['LinkAutocomplete']['dependencies'] = array('ext.wikiEditor');
+        $a = &$wgResourceModules['ext.wikiEditor']['dependencies'];
+        $a = (array)$a;
+        $a[] = 'LinkAutocomplete';
     }
 }
 

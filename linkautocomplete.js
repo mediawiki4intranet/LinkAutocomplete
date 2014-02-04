@@ -19,7 +19,6 @@ $(document).ready(function()
 	var isset;
 	tao.appendChild(tas);
 	tao.appendChild(tas2);
-	ta.parentNode.style.position = 'relative';
 	ta.style.zIndex = '2';
 	tao.style.visibility = 'hidden';
 	tao.style.position = 'absolute';
@@ -42,15 +41,6 @@ $(document).ready(function()
 		s = s.replace(/"/g, '&quot;'); //"
 		return s;
 	}
-	// Wrap textarea in a div if WikiEditor is not loaded
-	if (ta.parentNode.className.substr(0, 11) != 'wikiEditor-')
-	{
-		var np = document.createElement('div');
-		np.style.position = 'relative';
-		ta.parentNode.insertBefore(np, ta);
-		np.appendChild(ta);
-	}
-	ta.parentNode.insertBefore(tao, ta);
 	// Helper functions and local variables
 	var linkstart, linkend, linkafter = null, linkrel = null, last_q = null;
 	var findChars = function(i, chars)
@@ -70,30 +60,42 @@ $(document).ready(function()
 		// Never cut anything
 		linkend = ta.selectionStart;
 	};
-	var setHintPos = function(pos)
+	var setHintPos = function()
 	{
+		if (!tao.parentNode)
+		{
+			// Wrap textarea in a div if WikiEditor is not loaded
+			if (ta.parentNode.className.substr(0, 11) != 'wikiEditor-')
+			{
+				var np = document.createElement('div');
+				ta.parentNode.insertBefore(np, ta);
+				np.appendChild(ta);
+			}
+			ta.parentNode.style.position = 'relative';
+			ta.parentNode.insertBefore(tao, ta);
+		}
 		if (!isset)
 		{
 			tao.style.lineHeight = $(ta).css('line-height');
 			isset = true;
 		}
-		// Find closest whitespace character - we'll cut up to it for correct wrapping
-		j = findChars(pos, ' \t\n\r');
-		// Copy text to overlay to calculate cursor position
-		tao.style.overflowY = ta.scrollHeight > ta.clientHeight ? 'scroll' : '';
-		tas.innerHTML = htmlspecialchars(ta.value.substr(0, pos));
-		tas2.innerHTML = htmlspecialchars(ta.value.substr(pos, j));
-		var rects = tas.getClientRects(),
-			lastRect = rects[rects.length-1],
-			hinttop = lastRect.bottom - ta.scrollTop + document.documentElement.scrollTop + document.body.scrollTop,
-			hintleft = lastRect.right;
-		linkhint.hintLayer.style.top = hinttop+'px';
-		linkhint.hintLayer.style.left = hintleft+'px';
 	};
 	var showHint = function(opts)
 	{
 		if (opts.length)
 		{
+			// Find closest whitespace character - we'll cut up to it for correct wrapping
+			j = findChars(linkstart, ' \t\n\r');
+			// Copy text to overlay to calculate cursor position
+			tao.style.overflowY = ta.scrollHeight > ta.clientHeight ? 'scroll' : '';
+			tas.innerHTML = htmlspecialchars(ta.value.substr(0, linkstart));
+			tas2.innerHTML = htmlspecialchars(ta.value.substr(linkstart, j));
+			var rects = tas.getClientRects(),
+				lastRect = rects[rects.length-1],
+				hinttop = lastRect.bottom - ta.scrollTop + document.documentElement.scrollTop + document.body.scrollTop,
+				hintleft = lastRect.right;
+			linkhint.hintLayer.style.top = hinttop+'px';
+			linkhint.hintLayer.style.left = hintleft+'px';
 			linkhint.hintLayer.style.display = '';
 		}
 		linkhint.replaceItems(opts);
@@ -108,7 +110,7 @@ $(document).ready(function()
 			linkstart++;
 		}
 		findLinkEnd();
-		setHintPos(linkstart);
+		setHintPos();
 		// Handle relative links
 		var curend = ta.selectionStart > linkstart ? ta.selectionStart : linkend;
 		var q = ta.value.substr(linkstart, curend-linkstart).trim();
@@ -310,7 +312,7 @@ $(document).ready(function()
 			// Maybe a hashed parser function of a page section
 			// Save position of '#'
 			linkstart = i+1;
-			setHintPos(linkstart);
+			setHintPos();
 			for (i--; i >= 0 && ' \t'.indexOf(ta.value[i]) != -1; i--) {}
 			if (i > 0 && ta.value[i] == '{' && ta.value[i-1] == '{')
 			{
