@@ -70,6 +70,7 @@ $(document).ready(function()
 				var np = document.createElement('div');
 				ta.parentNode.insertBefore(np, ta);
 				np.appendChild(ta);
+				ta.focus();
 			}
 			ta.parentNode.style.position = 'relative';
 			ta.parentNode.insertBefore(tao, ta);
