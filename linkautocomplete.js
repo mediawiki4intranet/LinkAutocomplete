@@ -376,26 +376,26 @@ $(document).ready(function()
 		//   if the link is inserted before a non-space character
 		//   i.e. ^Some text --> [[L^Some text --> [[Link|Some]] text
 		//   but ^ Some text --> [[L^ Some text --> [[Link]] Some text
-		var after = linkafter[0].indexOf(this.input.value[linkend]) == -1;
+		var after = linkafter[0].indexOf(ta.value[linkend]) == -1;
 		var pos = 0;
 		if (after)
 		{
 			// If the cursor is at non-space character, wrap up to
 			// the first space, while respecting {} and [] brace nesting
-			var space = /\s/.exec(this.input.value[linkend]);
+			var space = /\s/.exec(ta.value[linkend]);
 			if (!space)
 			{
 				var stack = [];
 				var re = /[\[\]\s\{\}]/g; // tags?
 				var m;
 				var i = linkend;
-				while (i < this.input.value.length)
+				while (i < ta.value.length)
 				{
 					re.lastIndex = i;
-					m = re.exec(this.input.value);
+					m = re.exec(ta.value);
 					if (!m)
 					{
-						i = this.input.value.length;
+						i = ta.value.length;
 						break;
 					}
 					i = re.lastIndex;
@@ -420,7 +420,7 @@ $(document).ready(function()
 						break;
 					}
 				}
-				after = linkafter[3] + this.input.value.substr(linkend, i-linkend) + linkafter[4];
+				after = linkafter[3] + ta.value.substr(linkend, i-linkend) + linkafter[4];
 				// Place cursor after wrap prefix
 				pos = linkafter[3].length;
 				linkend = i;
@@ -436,21 +436,20 @@ $(document).ready(function()
 		{
 			after = '';
 		}
+		ta.focus();
 		if (!!window.webkitURL)
 		{
 			// This is needed for Undo to work in WebKit browsers (and only in them)
-			this.input.selectionStart = linkstart;
-			this.input.selectionEnd = linkend;
+			ta.setSelectionRange(linkstart, linkend);
 			document.execCommand('insertText', false, v + after);
 		}
 		else
 		{
-			this.input.value = this.input.value.substr(0, linkstart) + v + after +
-				this.input.value.substr(linkend);
+			ta.value = ta.value.substr(0, linkstart) + v + after +
+				ta.value.substr(linkend);
 		}
-		this.input.selectionStart = this.input.selectionEnd = linkstart + v.length + pos;
+		ta.selectionStart = ta.selectionEnd = linkstart + v.length + pos;
 		this.hide();
 		last_q = null;
-		this.input.focus();
 	};
 });
