@@ -148,7 +148,7 @@ $(document).ready(function()
 			if (q[0] == ':')
 			{
 				// First letter is second, re-uppercase it
-				q = q.substr(1, 2).toUpperCase()+q.substr(2);
+				q = q.substr(1, 1).toUpperCase()+q.substr(2);
 			}
 			else if (!new RegExp('^('+tplRegexp+'):').exec(q))
 			{
