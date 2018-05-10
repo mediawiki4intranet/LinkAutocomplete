@@ -58,7 +58,7 @@ function efLinkAutocomplete()
     }
 }
 
-function efLinkAutocomplete_BPD(&$out)
+function efLinkAutocomplete_BPD($out)
 {
     global $wgRequest;
     $action = $wgRequest->getVal('action');
