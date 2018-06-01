@@ -2,8 +2,8 @@
 
    Homepage: http://yourcmc.ru/wiki/SimpleAutocomplete
    License: MPL 2.0+ (http://www.mozilla.org/MPL/2.0/)
-   Version: 2013-11-13
-   (c) Vitaliy Filippov 2011-2013
+   Version: 2018-06-01
+   (c) Vitaliy Filippov 2011-2018
 
    Usage:
      Include hinter.css, hinter.js on your page. Then write:
@@ -15,11 +15,12 @@
      dataLoader(hint, value[, more])
        Callback which should load autocomplete options and then call:
        hint.replaceItems(newOptions, append)
-         newOptions = [ [ name, value, disabled, checked ] ], [ name, value ], ... ]
+         newOptions = [ [ name, value, disabled, checked OR id ] ], [ name, value ], ... ]
            name = HTML option name
            value = plaintext option value
            disabled = prevent selection of this option
-           checked = only meaningful when multipleListener is set
+           checked = (when multipleListener is set) is the item checked initially
+           id = (when idField is set) the value ID for idField
          append = 'more' parameter should be passed here
        Callback parameters:
          hint
@@ -42,7 +43,7 @@
        If you don't want to touch the input value, but want to use multi-select for
        your own purposes, specify a callback that will handle item clicks here.
        Also you can disable and check/uncheck items during loading in this mode.
-     onChangeListener(hint, index)
+     onChangeListener(hint, index, item)
        Callback which is called when input value is changed using this dropdown.
        index is the number of element which selection is changed, starting with 0.
        It must be used instead of normal 'onchange' event.
@@ -61,6 +62,17 @@
        of the list, and SimpleAutocomplete will issue another request to
        dataLoader with incremented 'more' parameter when it will be clicked.
        You can also set moreMarker to false to disable this feature.
+     idField
+       If you specify an ID here, the selected value ID will be put into
+       a hidden field with this ID, while the original hinted input will
+       just contain the name of that value.
+     persist
+       If true, the hint layer will never be hidden. You can use it to create
+       multiselect-like controls (see example at the homepage).
+     useTab
+       Select entry on Tab key press
+     className
+       CSS class name for the hint layer. Default is 'hintLayer'.
 
    Destroy instance:
      hint.remove(); hint = null;
@@ -76,6 +88,7 @@ var SimpleAutocomplete = function(input, dataLoader, params)
         params = {};
 
     // Parameters
+    this.options = params;
     this.input = input;
     this.dataLoader = dataLoader;
     this.multipleDelimiter = params.multipleDelimiter;
@@ -85,6 +98,12 @@ var SimpleAutocomplete = function(input, dataLoader, params)
     this.prompt = params.prompt;
     this.delay = params.delay;
     this.moreMarker = params.moreMarker;
+    this.idField = params.idField;
+    this.persist = params.persist;
+    this.useTab = params.useTab && true;
+    this.className = params.className || 'hintLayer';
+    if (this.idField && typeof(this.idField) == 'string')
+        this.idField = document.getElementById(this.idField);
 
     // Default values
     if (this.moreMarker === undefined)
@@ -100,6 +119,7 @@ var SimpleAutocomplete = function(input, dataLoader, params)
     this.skipHideCounter = 0;
     this.selectedIndex = -1;
     this.disabled = false;
+    this.curValue = null;
 
     // *** Call initialise ***
     this.init();
@@ -115,17 +135,20 @@ SimpleAutocomplete.prototype.init = function()
     this.id = this.input.id + l.length;
     l.push(this);
 
-    var p = getOffset(e);
-
     // Create hint layer
     var t = this.hintLayer = document.createElement('div');
-    t.className = 'hintLayer';
-    t.style.display = 'none';
-    t.style.position = 'absolute';
-    t.style.top = (p.top+e.offsetHeight) + 'px';
-    t.style.zIndex = 1000;
-    t.style.left = p.left + 'px';
-    document.body.appendChild(t);
+    t.className = this.className;
+    if (!this.persist)
+    {
+        t.style.display = 'none';
+        t.style.position = 'absolute';
+        t.style.zIndex = 1000;
+        document.body.insertBefore(t, document.body.childNodes[0]);
+    }
+    else
+    {
+        e.nextSibling ? e.parentNode.insertBefore(t, e.nextSibling) : e.parentNode.appendChild(t);
+    }
 
     // Remember instance
     e.SimpleAutocomplete_input = this;
@@ -146,7 +169,7 @@ SimpleAutocomplete.prototype.init = function()
     this.addRmListener('focus', function() { return self.onInputFocus(); });
     this.addRmListener('blur', function() { return self.onInputBlur(); });
     addListener(t, 'mousedown', function(ev) { return self.cancelBubbleOnHint(ev); });
-    this.onChange();
+    this.onChange(true);
 };
 
 // items = [ [ name, value ], [ name, value ], ... ]
@@ -237,7 +260,7 @@ SimpleAutocomplete.prototype.makeItem = function(index, item)
         l.htmlFor = c.id;
         l.innerHTML = item[0];
         d.appendChild(l);
-        addListener(c, 'click', this.preventCheck);
+        addListener(l, 'click', this.preventCheck);
     }
     else
         d.innerHTML = item[0];
@@ -299,6 +322,7 @@ SimpleAutocomplete.prototype.selectItem = function(index)
     {
         // User clicked 'more'. Load more items without delay.
         this.items.splice(index, 1);
+        var elm = document.getElementById(this.id+'_item_'+index);
         elm.parentNode.removeChild(elm);
         this.more++;
         this.onChange(true);
@@ -307,6 +331,8 @@ SimpleAutocomplete.prototype.selectItem = function(index)
     if (!this.multipleDelimiter && !this.multipleListener)
     {
         this.input.value = this.items[index][1];
+        if (this.idField)
+            this.idField.value = this.items[index][3];
         this.hide();
     }
     else
@@ -318,7 +344,7 @@ SimpleAutocomplete.prototype.selectItem = function(index)
     }
     this.curValue = this.input.value;
     if (this.onChangeListener)
-        this.onChangeListener(this, index);
+        this.onChangeListener(this, index, this.items[index]);
 };
 
 // Change input value so it will respect index'th item state in a multi-select
@@ -360,21 +386,34 @@ SimpleAutocomplete.prototype.toggleValue = function(index)
 // Hide hinter
 SimpleAutocomplete.prototype.hide = function()
 {
-    if (!this.skipHideCounter)
-        this.hintLayer.style.display = 'none';
-    else
-        this.skipHideCounter = 0;
+    if (!this.persist)
+    {
+        if (!this.skipHideCounter)
+        {
+            this.hintLayer.style.display = 'none';
+            return true;
+        }
+        else
+            this.skipHideCounter = 0;
+    }
 };
 
 // Show hinter
 SimpleAutocomplete.prototype.show = function()
 {
-    if (!this.disabled)
+    if (!this.disabled && !this.persist && this.hintLayer.style.display == 'none')
     {
         var p = getOffset(this.input);
         this.hintLayer.style.top = (p.top+this.input.offsetHeight) + 'px';
         this.hintLayer.style.left = p.left + 'px';
         this.hintLayer.style.display = '';
+        var sw = document.clientWidth || document.documentElement.clientWidth || document.body.clientWidth;
+        if (p.left + this.hintLayer.offsetWidth > sw)
+        {
+            this.hintLayer.style.right = (sw-p.left-this.input.offsetWidth)+'px';
+            this.hintLayer.style.left = '';
+        }
+        return true;
     }
 };
 
@@ -395,11 +434,10 @@ SimpleAutocomplete.prototype.enable = function()
 
 // *** Event handlers ***
 
-// Prevent default action on checkbox
+// Prevent propagating label click to checkbox
 SimpleAutocomplete.prototype.preventCheck = function(ev)
 {
-    ev = ev||window.event;
-    return stopEvent(ev, true, true);
+    return stopEvent(ev||window.event, false, true);
 };
 
 // Cancel event propagation
@@ -433,6 +471,8 @@ SimpleAutocomplete.prototype.onChange = function(force)
         this.more = 0;
     if (v != this.curValue || force)
     {
+        if (this.curValue !== null && this.idField)
+            this.idField.value = '';
         this.curValue = v;
         if (!this.delay || force)
             this.dataLoader(this, v, this.more);
@@ -448,13 +488,13 @@ SimpleAutocomplete.prototype.onChange = function(force)
     return true;
 };
 
-// Handle Enter key presses, cancel handling of arrow keys
+// Handle Enter/Tab key presses, cancel handling of arrow keys
 SimpleAutocomplete.prototype.onKeyUp = function(ev)
 {
     ev = ev||window.event;
     if (ev.keyCode == 38 || ev.keyCode == 40)
         this.show();
-    if (ev.keyCode == 38 || ev.keyCode == 40 || ev.keyCode == 10 || ev.keyCode == 13)
+    if (ev.keyCode == 38 || ev.keyCode == 40 || ev.keyCode == 10 || ev.keyCode == 13 || ev.keyCode == 9 && this.useTab)
     {
         if (this.hintLayer.style.display == '')
             return stopEvent(ev, true, true);
@@ -465,7 +505,7 @@ SimpleAutocomplete.prototype.onKeyUp = function(ev)
     return true;
 };
 
-// Handle arrow keys and Enter
+// Handle arrow keys and Enter/Tab
 SimpleAutocomplete.prototype.onKeyDown = function(ev)
 {
     if (this.hintLayer.style.display == 'none')
@@ -475,7 +515,7 @@ SimpleAutocomplete.prototype.onKeyDown = function(ev)
         this.moveHighlight(-1);
     else if (ev.keyCode == 40) // down
         this.moveHighlight(1);
-    else if (ev.keyCode == 10 || ev.keyCode == 13) // enter
+    else if (ev.keyCode == 10 || ev.keyCode == 13 || ev.keyCode == 9 && this.useTab) // enter / tab
     {
         if (this.selectedIndex >= 0)
             this.selectItem(this.selectedIndex);
@@ -514,6 +554,8 @@ SimpleAutocomplete.prototype.onInputFocus = function()
 // Called when input loses focus
 SimpleAutocomplete.prototype.onInputBlur = function()
 {
+    if (!this.skipHideCounter && this.idField && !this.idField.value)
+        this.input.value = '';
     this.hide();
     this.hasFocus = false;
     return true;

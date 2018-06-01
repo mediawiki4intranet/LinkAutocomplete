@@ -338,7 +338,7 @@ $(document).ready(function()
 		}
 		last_q = null;
 		linkhint.replaceItems([]);
-	});
+	}, { useTab: true });
 	linkhint.addRmListener('mousedown', function() {
 		linkhint.onChange();
 	});
