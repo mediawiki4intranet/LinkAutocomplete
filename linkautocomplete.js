@@ -437,7 +437,7 @@ $(document).ready(function()
 			after = '';
 		}
 		ta.focus();
-		if (!!window.webkitURL)
+		if (/WebKit/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent))
 		{
 			// This is needed for Undo to work in WebKit browsers (and only in them)
 			ta.setSelectionRange(linkstart, linkend);
